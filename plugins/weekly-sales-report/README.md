@@ -10,14 +10,14 @@ weekly-sales-report は、GitHub Copilot CLI のプラグインです。作業�
 
 ### 1. インストールする
 
-weekly-sales-report は、マーケットプレイス [plugin-market-place](https://github.com/imaeda-hub/plugin-market-place) に入っています。マーケットプレイスを登録してから、プラグインを入れます。
+weekly-sales-report は、マーケットプレイス [plugin-market-place](https://github.com/xclang-brain/plugin-market-place) に入っています。マーケットプレイスを登録してから、プラグインを入れます。
 
 ```shell
-copilot plugin marketplace add imaeda-hub/plugin-market-place
+copilot plugin marketplace add xclang-brain/plugin-market-place
 copilot plugin install weekly-sales-report@plugin-market-place
 ```
 
-- Copilot CLI の中では、`/plugin marketplace add imaeda-hub/plugin-market-place` と `/plugin install weekly-sales-report@plugin-market-place` でも入れられます。
+- Copilot CLI の中では、`/plugin marketplace add xclang-brain/plugin-market-place` と `/plugin install weekly-sales-report@plugin-market-place` でも入れられます。
 - フォルダを直接指定する入れ方（`copilot plugin install ./フォルダ`）は、Copilot CLI 1.0.102 が「廃止予定」と表示するので、マーケットプレイスを通す入れ方にしています。
 
 ### 2. 試験的機能を有効にする

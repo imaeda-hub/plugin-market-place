@@ -1,7 +1,7 @@
 {
   "name": "plugin-market-place",
   "owner": {
-    "name": "imaeda-hub"
+    "name": "xclang-brain"
   },
   "metadata": {
     "description": "plugin-creator で作った GitHub Copilot CLI のプラグインを集めたマーケットプレイス"
