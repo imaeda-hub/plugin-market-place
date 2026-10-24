@@ -1,0 +1,12 @@
+{
+  "name": "weekly-sales-report",
+  "owner": {
+    "name": "weekly-sales-report"
+  },
+  "plugins": [
+    {
+      "name": "weekly-sales-report",
+      "source": "./"
+    }
+  ]
+}

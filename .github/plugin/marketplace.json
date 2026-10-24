@@ -1,0 +1,17 @@
+{
+  "name": "plugin-market-place",
+  "owner": {
+    "name": "imaeda-hub"
+  },
+  "metadata": {
+    "description": "plugin-creator で作った GitHub Copilot CLI のプラグインを集めたマーケットプレイス"
+  },
+  "plugins": [
+    {
+      "name": "weekly-sales-report",
+      "description": "毎週の売上データ（sales.csv）から、部長に出す週報 weekly_report.md を作るプラグイン",
+      "version": "0.1.0",
+      "source": "./plugins/weekly-sales-report"
+    }
+  ]
+}

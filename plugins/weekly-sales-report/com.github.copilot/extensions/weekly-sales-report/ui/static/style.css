@@ -1,0 +1,676 @@
+/* Web管理画面の見た目。どの生成プラグインでも同じ構成と見た目にする（REQ-030）。
+   文字と背景の色の差は 4.5:1 以上（WCAG 2.2）。大きさは rem で決め、文字を大きくしても崩れないようにする。 */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1f2933;
+  --muted: #52606d;
+  --line: #d9e2ec;
+  --border: #7b8794;
+  --primary: #0b5cad;
+  --danger: #a61b1b;
+  --focus: #1d4ed8;
+  --radius: 0.5rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', Meiryo, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  /* 区切りのない長い文字（長いコマンドや場所）も、入れ物の中で折り返す */
+  overflow-wrap: anywhere;
+}
+
+.page {
+  max-width: 90rem;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.375rem;
+  line-height: 1.3;
+}
+
+h2 {
+  font-size: 1.125rem;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+h3 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.muted,
+.help,
+.trial-help {
+  color: var(--muted);
+}
+
+.help {
+  font-size: 0.875rem;
+}
+
+.text-block {
+  white-space: pre-wrap;
+  margin: 0.25rem 0;
+}
+
+/* ---- 見出し（状態の札と止めるボタン） ---- */
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0;
+}
+
+.top h1 {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.top-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.top-message {
+  flex-basis: 100%;
+}
+
+/* ---- 札（状態は色だけでなく文字でも示す） ---- */
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 62.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  background: #e4e7eb;
+  color: #1f2933;
+  overflow-wrap: anywhere;
+}
+
+.badge-running,
+.badge-info {
+  background: #d6e8fb;
+  color: #0a3d7a;
+}
+
+.badge-waiting,
+.badge-warn {
+  background: #fdecc8;
+  color: #5c3a00;
+}
+
+.badge-completed {
+  background: #d3f0dc;
+  color: #0a4d24;
+}
+
+.badge-failed,
+.badge-unstopped {
+  background: #fbd9d9;
+  color: #7a1414;
+}
+
+.badge-unstopped {
+  border: 2px solid #7a1414;
+}
+
+/* ---- ボタン ---- */
+
+.btn {
+  min-height: 2.5rem;
+  padding: 0.4rem 1.1rem;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.btn:disabled {
+  background: #d9e2ec;
+  color: #3e4c59;
+  cursor: not-allowed;
+}
+
+.actions {
+  margin-top: 0.75rem;
+}
+
+/* ---- 注意・案内 ---- */
+
+.alert,
+.note {
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  border-left: 0.35rem solid transparent;
+  margin: 0.5rem 0;
+}
+
+.alert-error {
+  background: #fbd9d9;
+  color: #7a1414;
+  border-left-color: var(--danger);
+}
+
+.alert-info {
+  background: #e0ecfa;
+  color: #0a3d7a;
+  border-left-color: var(--primary);
+}
+
+.alert ol,
+.alert ul {
+  padding-left: 1.5rem;
+}
+
+.note {
+  background: var(--surface);
+  border-left-color: var(--border);
+}
+
+.note-warn {
+  background: #fdecc8;
+  color: #5c3a00;
+  border-left-color: #b45309;
+}
+
+/* ---- 区画 ---- */
+
+.main {
+  display: block;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+/* ---- フェーズ・試行・エージェントの枠・受け渡しの図 ---- */
+
+.steps-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.9rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.phase.is-active,
+.flow-node.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.phase-no {
+  font-size: 0.875rem;
+}
+
+.now {
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.trial {
+  font-weight: 600;
+}
+
+.trial-help {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.phase-note {
+  color: var(--muted);
+}
+
+.agents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+}
+
+.agent {
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 0.4rem solid var(--border);
+  border-radius: var(--radius);
+}
+
+.agent-running {
+  border-top-color: var(--primary);
+}
+
+.agent-waiting {
+  border-top-color: #b45309;
+}
+
+.agent-completed {
+  border-top-color: #1f7a3d;
+}
+
+.agent-failed,
+.agent-unstopped {
+  border-top-color: var(--danger);
+}
+
+.agent-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+}
+
+.agent-label {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.agent-status {
+  margin: 0.25rem 0;
+}
+
+.facts,
+.kv {
+  font-size: 0.875rem;
+}
+
+/* 見出しと値は横に並べる。幅が足りないときは、値が見出しの下に回る（文字が1字ずつ折れない） */
+.fact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.fact dt {
+  flex: 1 1 8.5rem;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.fact dd {
+  flex: 2 1 8rem;
+  min-width: 0;
+}
+
+.facts.wide {
+  font-size: 1rem;
+}
+
+.facts.wide .fact {
+  padding: 0.1rem 0;
+}
+
+.facts.wide .fact dt {
+  flex-basis: 11rem;
+}
+
+.reply-summary {
+  margin-top: 0.4rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+
+.flow-wrap {
+  margin-top: 0.75rem;
+}
+
+.flow-title {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-node {
+  padding: 0.15rem 0.7rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+.flow-link {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.flow-link::after {
+  content: ' →';
+}
+
+.flow-link.is-active {
+  color: #0a3d7a;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* ---- 確認の待ち・止まっていないエージェント ---- */
+
+#s-waits {
+  border-left: 0.4rem solid #b45309;
+}
+
+.wait {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.command {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: #f0f4f8;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.warning-text {
+  font-weight: 600;
+  color: #7a1414;
+}
+
+.plain-list {
+  padding-left: 1.25rem;
+}
+
+#s-unstopped {
+  border-left: 0.4rem solid var(--danger);
+}
+
+.unstopped-list {
+  padding-left: 1.25rem;
+}
+
+/* ---- 畳まれる内容 ---- */
+
+.fold {
+  margin: 0.25rem 0;
+}
+
+.fold > summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.fold-body {
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  border-left: 3px solid var(--line);
+}
+
+/* ---- 開始前の設定 ---- */
+
+.group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem 0.75rem;
+  margin: 0 0 0.75rem;
+  min-width: 0;
+}
+
+.group legend {
+  padding: 0 0.4rem;
+  font-weight: 700;
+}
+
+.field {
+  margin: 0.75rem 0;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+}
+
+.field input[type='text'],
+.field input[type='number'],
+.field select {
+  display: block;
+  width: 100%;
+  max-width: 32rem;
+  min-height: 2.5rem;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.field-check label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-check input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.required {
+  margin-left: 0.25rem;
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ---- 試行ごとの評価基準と合否 ---- */
+
+.iteration,
+.issue {
+  padding: 0.6rem 0.8rem;
+  margin: 0.6rem 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.iteration-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.criteria {
+  padding: 0;
+  list-style: none;
+}
+
+.criterion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.criterion-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.criterion-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.criterion-note {
+  flex-basis: 100%;
+  margin-left: 0.5rem;
+}
+
+/* ---- 作業ごとの表示 ---- */
+
+.displays {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+}
+
+.display {
+  min-width: 0;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: normal; /* 表は、入れ物の中で横に動かせる */
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+th,
+td {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f0f4f8;
+}
+
+.progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.progress progress {
+  flex: 1 1 10rem;
+  max-width: 24rem;
+  height: 1.25rem;
+}
+
+.display-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
+.file-link {
+  color: var(--primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Issue の案 ---- */
+
+.issue-meta {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.issue-reason {
+  color: #7a1414;
+  overflow-wrap: anywhere;
+}
+
+a {
+  color: var(--primary);
+}
