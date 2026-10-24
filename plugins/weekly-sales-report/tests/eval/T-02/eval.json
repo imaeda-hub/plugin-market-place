@@ -1,0 +1,65 @@
+{
+  "id": "T-02",
+  "prompt": "inputs/sales.csv は今週の売上データ（列は日付・担当・金額）です。これをもとに、部長に出す週報を weekly_report.md に作ってください。来週の予定は「既存のお客様への定期訪問を4件する」です。",
+  "inputs": [
+    "inputs/sales.csv"
+  ],
+  "settings": {
+    "maxIterations": 3
+  },
+  "criteria": [
+    {
+      "id": "C-01",
+      "text": "週報の担当ごとの金額が、sales.csv のその担当の円を万円にして1万円未満を切り捨てた数になっていれば合格（例：187,000円→18万円。19万円なら不合格）。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "weekly_report.md",
+        "pattern": "^(?=[\\s\\S]*佐藤[^\\n]*(?<![0-9])15万円)(?=[\\s\\S]*鈴木[^\\n]*(?<![0-9])20万円)(?=[\\s\\S]*高橋[^\\n]*(?<![0-9])10万円)",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-02",
+      "text": "1万円に満たない担当が「0万円」ではなく「1万円未満」と書いてあれば合格。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "weekly_report.md",
+        "pattern": "^(?=[\\s\\S]*田中[^\\n]*1万円未満)(?![\\s\\S]*田中[^\\n]*(?<![0-9])0万円)",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-03",
+      "text": "週報の合計が、sales.csv の金額を円のまますべて足してから万円に切り捨てた数になっていれば合格（例：505,000円→50万円。49万円なら不合格）。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "weekly_report.md",
+        "pattern": "^(?=[\\s\\S]*合計[^\\n]*(?<![0-9])47万円)",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-04",
+      "text": "週報の見出しが「■今週の売上」「■来週の予定」の2つだけでこの順に並び、最後の行が「以上」の2文字だけなら合格。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "weekly_report.md",
+        "pattern": "^(?=[\\s\\S]*?^■今週の売上[ \\t\\r]*$[\\s\\S]*?^■来週の予定[ \\t\\r]*$[\\s\\S]*?^以上[ \\t\\r\\n]*(?![\\s\\S]))(?![\\s\\S]*^(?:#|■)(?!今週の売上[ \\t\\r]*$|来週の予定[ \\t\\r]*$))",
+        "flags": "m"
+      }
+    },
+    {
+      "id": "C-05",
+      "text": "成果物が Markdown のファイル weekly_report.md になっていれば合格。",
+      "grading": "program",
+      "check": {
+        "type": "file_exists",
+        "file": "weekly_report.md"
+      }
+    }
+  ]
+}

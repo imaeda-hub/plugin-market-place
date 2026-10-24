@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "weekly-sales-report",
+  "version": "0.1.0",
+  "description": "毎週の売上データ（sales.csv）から、部長に出す週報 weekly_report.md を作るプラグイン"
+}
