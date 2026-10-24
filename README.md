@@ -1,13 +1,13 @@
 # plugin-market-place
 
-[plugin-creator](https://github.com/imaeda-hub/plugin-creator) で作った GitHub Copilot CLI のプラグインを集めたマーケットプレイスです。
+[plugin-creator](https://github.com/xclang-brain/plugin-creator) で作った GitHub Copilot CLI のプラグインを集めたマーケットプレイスです。
 
 ## 入れ方
 
 マーケットプレイスを登録してから、使いたいプラグインを入れます。
 
 ```shell
-copilot plugin marketplace add imaeda-hub/plugin-market-place
+copilot plugin marketplace add xclang-brain/plugin-market-place
 copilot plugin install <プラグインの名前>@plugin-market-place
 ```
 
