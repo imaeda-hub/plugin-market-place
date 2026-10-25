@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "embedded-debug-loop",
+  "version": "0.1.0",
+  "description": "C/C++ の組み込み機器のデバッグを、利用者のルールに従ったビルド・デプロイ・実機ログの分析を PDS のループで繰り返して自律的に進めるプラグイン"
+}
