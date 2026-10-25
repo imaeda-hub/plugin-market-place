@@ -1,0 +1,12 @@
+{
+  "name": "embedded-debug-loop",
+  "owner": {
+    "name": "embedded-debug-loop"
+  },
+  "plugins": [
+    {
+      "name": "embedded-debug-loop",
+      "source": "./"
+    }
+  ]
+}

@@ -19,6 +19,7 @@ copilot plugin install <プラグインの名前>@plugin-market-place
 | 名前 | できること | 版 |
 | --- | --- | --- |
 | [weekly-sales-report](plugins/weekly-sales-report/) | 毎週の売上データ（sales.csv）から、部長に出す週報 weekly_report.md を作る | 0.1.0 |
+| [embedded-debug-loop](plugins/embedded-debug-loop/) | C/C++ の組み込み機器のデバッグを、利用者のルールに従ったビルド・デプロイ・実機ログの分析を PDS のループで繰り返して自律的に進める | 0.1.0 |
 
 weekly-sales-report は、plugin-creator の試験で作った見本です。AI が演じたユーザー（営業チームのリーダー）と plugin-creator が会話して作りました。中に出てくる人の名前や売上の数字は、架空のものです。
 
