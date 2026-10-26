@@ -1,0 +1,32 @@
+# 試験用の偽 Coverity データ。src/logger.c の内容に対応しています。
+snapshot:
+  sourceVersion: ""
+issues:
+  - cid: 30001
+    project: Sample
+    stream: Sample-main
+    checker: CERT ERR33-C
+    file: src/logger.c
+    function: log_line
+    line: 7
+    impact: Medium
+    status: New
+    classification: Unclassified
+    action: Undecided
+    checker_description: 標準ライブラリ関数のエラーを検出して処理していません。
+    events:
+      - {file: src/logger.c, line: 7, tag: cert_err33_c_violation, description: "fputs() の戻り値を確かめていない", main: true}
+  - cid: 30002
+    project: Sample
+    stream: Sample-main
+    checker: CERT STR31-C
+    file: src/logger.c
+    function: copy_name
+    line: 16
+    impact: High
+    status: New
+    classification: Unclassified
+    action: Undecided
+    checker_description: 文字列の格納先に、終端文字を含めた十分な領域があることを保証していません。
+    events:
+      - {file: src/logger.c, line: 16, tag: cert_str31_c_violation, description: "strcpy() でコピー先の大きさを確かめていない", main: true}

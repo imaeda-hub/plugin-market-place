@@ -1,0 +1,12 @@
+{
+  "name": "coverity-warning-triage",
+  "owner": {
+    "name": "coverity-warning-triage"
+  },
+  "plugins": [
+    {
+      "name": "coverity-warning-triage",
+      "source": "./"
+    }
+  ]
+}

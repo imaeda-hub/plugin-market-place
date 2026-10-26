@@ -1,0 +1,67 @@
+{
+  "id": "T-03",
+  "prompt": "inputs/logger.c、inputs/config.yaml、inputs/fake-issues.yaml、inputs/all.yaml を使って、git の見本のリポジトリを作ってください（src/logger.c、.coverity-triage/config.yaml、.coverity-triage/fake-issues.yaml、.coverity-triage/filters/all.yaml を置き、main ブランチに1つコミット）。そのリポジトリで、偽の Coverity の CERT の警告を条件ファイル all.yaml でトリアージし、一覧 summary.html と詳細レポートまで作ってください。",
+  "inputs": [
+    "inputs/logger.c",
+    "inputs/config.yaml",
+    "inputs/fake-issues.yaml",
+    "inputs/all.yaml"
+  ],
+  "settings": {
+    "maxIterations": 3,
+    "task": {
+      "condition_file": "all.yaml",
+      "impact": "絞らない",
+      "max_items": 10,
+      "initial_analysis": "しない"
+    }
+  },
+  "criteria": [
+    {
+      "id": "C-23",
+      "text": "CERT は、攻撃者が入力を制御できる経路かどうかが判断の鍵。入力の出どころをたどり、届かなくても規則違反が残れば逸脱コメントで説明する。ERR33-C は無視して問題ない理由を説明できれば逸脱、できなければ修正。",
+      "grading": "model"
+    },
+    {
+      "id": "C-04",
+      "text": "推奨の決め方：true_bug は修正。false_positive / intentional は、どんな状況でも問題にならないことを条件や但し書きなしに逸脱コメントに書けるときだけ逸脱で、書けなければ修正（小さく安全な修正なら修正も可）。undetermined はリスクが小さければ修正、大きければ逸脱で、確信度は低。",
+      "grading": "model"
+    },
+    {
+      "id": "C-28",
+      "text": "条件を付けないと「問題にならない」と言い切れないときは、推奨を修正にし、逸脱案は形として作って、言える範囲の理由だけを短く書く。「直さない理由は説明できない」は見本の文で、決まった書き方ではない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-05",
+      "text": "警告の内容にかかわらず、修正案と逸脱コメント案の両方を必ず作る（誤検知でも修正案を作る）。どちらを採用するかは人が決める。",
+      "grading": "model"
+    },
+    {
+      "id": "C-09",
+      "text": "逸脱コメントは、この警告がどんな状況でも問題にならないことを述べる文で、日本語・見出しなしの1〜2文、200字以内にする。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/items/*/result.json",
+        "pattern": "\"comment\"\\s*:\\s*\"(?!#)[^\"\\n]{1,200}\"",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-10",
+      "text": "逸脱コメントの順は、判定区分（「誤検知。」「意図的。」「本物の不具合。」を先頭に）→ 問題にならない理由（条件なしで言い切る）→ コードの根拠の場所（例 read_all()（src/io/reader.c:120）、範囲は src/reader.c:55〜60）。例：「誤検知。get_buf() の戻り値は NULL になりうるが、呼び出し元 read_all()（src/io/reader.c:120）で NULL を除いてから渡しているため、NULL を参照することはない。」",
+      "grading": "model"
+    },
+    {
+      "id": "C-11",
+      "text": "逸脱コメントに書かないもの：条件や但し書き（「ただし〜の場合に限る」）、調べた過程や調べきれなかったこと（verdict.rationale へ）、推奨や人への依頼（「修正を推奨」「確認してください」）。",
+      "grading": "model"
+    },
+    {
+      "id": "C-12",
+      "text": "根拠はすべてコードの場所（ファイルと行）で示す。根拠の場所（evidence、逸脱コメントの場所）には、調べて実際に読んだ場所だけを、リポジトリの一番上からの相対パスと行で書き、推測で書かない。",
+      "grading": "model"
+    }
+  ]
+}

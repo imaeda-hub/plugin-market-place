@@ -1,0 +1,266 @@
+{
+  "name": "Coverity 警告のトリアージ",
+  "maxIterationsDefault": 3,
+  "criteria": [
+    {
+      "id": "C-01",
+      "text": "呼び出し元の判断：すべての呼び出し元が経路の条件を満たさないなら経路は成り立たない。1つでも満たす呼び出し元があれば、経路は成り立ちうる。",
+      "knowledge": "K-28"
+    },
+    {
+      "id": "C-02",
+      "text": "判定区分は4つ。true_bug（本物のバグ：経路が成り立ち、実際に問題が起きる）、false_positive（誤検知：経路が成り立たない）、intentional（意図的：経路は成り立つが設計どおり）、undetermined（判定できない：コードからは決められない）。",
+      "knowledge": "K-29"
+    },
+    {
+      "id": "C-03",
+      "text": "確信度の基準：高は警告経路をコードで最後まで追え、根拠がすべてコードにある。中は根拠の一部に推定がある（例：呼び出し元がリポジトリにない）。低はコードから決められない前提によるか、リビジョンのずれがある。confidence_reason にどの基準に当たるかを具体的に書き、レポートでは確信度に括弧で理由を添える。",
+      "knowledge": "K-30"
+    },
+    {
+      "id": "C-04",
+      "text": "推奨の決め方：true_bug は修正。false_positive / intentional は、どんな状況でも問題にならないことを条件や但し書きなしに逸脱コメントに書けるときだけ逸脱で、書けなければ修正（小さく安全な修正なら修正も可）。undetermined はリスクが小さければ修正、大きければ逸脱で、確信度は低。",
+      "knowledge": "K-31"
+    },
+    {
+      "id": "C-05",
+      "text": "警告の内容にかかわらず、修正案と逸脱コメント案の両方を必ず作る（誤検知でも修正案を作る）。どちらを採用するかは人が決める。",
+      "knowledge": "K-35"
+    },
+    {
+      "id": "C-06",
+      "text": "修正は最小限にする（警告をなくすのに必要な箇所だけ。リファクタリング・整形・関係のない改善はしない）。",
+      "knowledge": "K-36"
+    },
+    {
+      "id": "C-07",
+      "text": "修正で関数の外部仕様（引数・戻り値・公開ヘッダ・グローバル変数のインタフェース）を変えない。",
+      "knowledge": "K-37"
+    },
+    {
+      "id": "C-08",
+      "text": "修正によって MISRA / CERT の別の規則に新しく違反しない（暗黙の型変換を増やさない、関数の出口を増やすなら既存の書き方に従う）。",
+      "knowledge": "K-39"
+    },
+    {
+      "id": "C-09",
+      "text": "逸脱コメントは、この警告がどんな状況でも問題にならないことを述べる文で、日本語・見出しなしの1〜2文、200字以内にする。",
+      "knowledge": "K-42"
+    },
+    {
+      "id": "C-10",
+      "text": "逸脱コメントの順は、判定区分（「誤検知。」「意図的。」「本物の不具合。」を先頭に）→ 問題にならない理由（条件なしで言い切る）→ コードの根拠の場所（例 read_all()（src/io/reader.c:120）、範囲は src/reader.c:55〜60）。例：「誤検知。get_buf() の戻り値は NULL になりうるが、呼び出し元 read_all()（src/io/reader.c:120）で NULL を除いてから渡しているため、NULL を参照することはない。」",
+      "knowledge": "K-43"
+    },
+    {
+      "id": "C-11",
+      "text": "逸脱コメントに書かないもの：条件や但し書き（「ただし〜の場合に限る」）、調べた過程や調べきれなかったこと（verdict.rationale へ）、推奨や人への依頼（「修正を推奨」「確認してください」）。",
+      "knowledge": "K-44"
+    },
+    {
+      "id": "C-12",
+      "text": "根拠はすべてコードの場所（ファイルと行）で示す。根拠の場所（evidence、逸脱コメントの場所）には、調べて実際に読んだ場所だけを、リポジトリの一番上からの相対パスと行で書き、推測で書かない。",
+      "knowledge": "K-46"
+    },
+    {
+      "id": "C-13",
+      "text": "作業ごとの結果ファイル result.json は item / verdict（judgement・summary・rationale・evidence[file, line, note]）/ recommendation（fix | deviation）/ confidence（high | medium | low）/ confidence_reason / deviation（classification・action・severity・comment）/ fix（classification・action・severity・summary・impact・exceeded_constraints・already_fixed_on_latest）/ revision_drift / group_excluded_cids を持ち、文字列は空にせず、余計なキーを入れない。",
+      "knowledge": "K-48"
+    },
+    {
+      "id": "C-14",
+      "text": "verdict.summary（一覧の「見立て」）は40字くらいの1行で判断の決め手を書く。人はまず一覧の「見立て」と詳細レポートの「結論」だけを読むので、そこだけで判断できるようにする。verdict.rationale には経路のどの段階をどう確かめたかを順に書く。",
+      "knowledge": "K-49"
+    },
+    {
+      "id": "C-15",
+      "text": "結果を書く前に3つ確かめる：修正するフォルダを直したか（変更がなく already_fixed_on_latest も true でなければ不合格）、アノテーションを入れたか（オプションのとき）、調べるコードと作業中のファイルを変えていないか。",
+      "knowledge": "K-50"
+    },
+    {
+      "id": "C-16",
+      "text": "検証の AI は、結果を読む前に ★ の場所と経路の条件を自分で読み、独立に判断する。見る点は、根拠の場所・判定・修正（★ の経路を断っているか・最小限か・外部仕様を変えていないか・新しい MISRA / CERT 違反を作らないか）・逸脱コメント・確信度・グループと統合。",
+      "knowledge": "K-52"
+    },
+    {
+      "id": "C-17",
+      "text": "スクリプトが決まった方法で検証に示す点：根拠のファイル・行が存在しない、undetermined なのに確信度が高、リビジョンのずれがあるのに確信度が高、true_bug なのに逸脱を推奨、false_positive / intentional なのに修正を推奨、根拠がない。",
+      "knowledge": "K-53"
+    },
+    {
+      "id": "C-18",
+      "text": "検証の結果は pass（合格：直すべき点がない）/ flag（要確認：人に確かめてほしい点があり、confidence_cap を必ず書く）/ rework（差し戻し：はっきりした誤りがあり、直す点を1点ずつ具体的に書く）。rework に当たるのは、根拠の行にそのコードが無い、判定がコードと合わない、修正が ★ の経路を断っていない、逸脱コメントの根拠の場所が違う、グループに原因の違う CID があるとき。言い回しや好みの違いは差し戻さない。",
+      "knowledge": "K-54"
+    },
+    {
+      "id": "C-19",
+      "text": "人に見せる確信度は、作業の AI の確信度・検証の上限・ビルドでの検証の結果のうちいちばん低いものにする。下げるだけで上げない。result.json は書き換えない。",
+      "knowledge": "K-56"
+    },
+    {
+      "id": "C-20",
+      "text": "統合でまとめるのは、原因が1つで、1か所を直せば（または1つの理由で）すべての警告が片付くものだけ。場所が近い・チェッカーが同じだけではまとめず、迷うときはまとめない。まとめる作業は2つ以上、1つの作業は1つのまとまりにだけ、CID は合わせて10件まで。",
+      "knowledge": "K-57"
+    },
+    {
+      "id": "C-21",
+      "text": "標準チェッカーの観点：NULL_RETURNS / FORWARD_NULL / REVERSE_INULL は呼び出し元の保証・直前の検証・戻らない関数があれば誤検知。RESOURCE_LEAK は所有権が呼び出し元や構造体に移っていれば誤検知（修正は goto cleanup など既存の後始末に合わせる）。OVERRUN 系は添字・サイズを定義元までたどり終端文字の1バイトに注意。UNINIT は到達しない分岐や出力引数の初期化を見落とすことがある。DEADCODE / UNREACHABLE は構成依存なら intentional、MISSING_BREAK は意図的なフォールスルーなら intentional。",
+      "knowledge": "K-59"
+    },
+    {
+      "id": "C-22",
+      "text": "MISRA の判定：本当に違反していれば true_bug、規則の対象外なら false_positive、違反だが設計上必要で安全性を説明できれば intentional。Mandatory は逸脱できないので修正を推奨、Required は正式な逸脱の手続きが要る、Advisory は比較的柔軟。1つのマクロや型定義が原因で大量に出る違反は原因の1か所を直す。",
+      "knowledge": "K-60"
+    },
+    {
+      "id": "C-23",
+      "text": "CERT は、攻撃者が入力を制御できる経路かどうかが判断の鍵。入力の出どころをたどり、届かなくても規則違反が残れば逸脱コメントで説明する。ERR33-C は無視して問題ない理由を説明できれば逸脱、できなければ修正。",
+      "knowledge": "K-61"
+    },
+    {
+      "id": "C-24",
+      "text": "人が承認して反映するまで、利用者の作業中のファイルも Coverity のトリアージ（分類・コメント）も変えない（例外は初回解析の登録だけ）。修正案はリポジトリの外にスクリプトが用意する修正用のコピー（git worktree / svn checkout）の上で作り、調べるコードは読むだけにする。",
+      "knowledge": "K-65"
+    },
+    {
+      "id": "C-25",
+      "text": "一覧 summary.html：見出し「トリアージ結果 <日時>」、その下に「条件: <条件名> ／ 警告 N 件（作業 M、うちグループ K）」、件数のタイル（警告・作業・修正の推奨・逸脱の推奨・確信度 低・エラー・未処理）、いまの承認の内訳（修正 / 逸脱 / 却下 / （空）/ 推奨から変えたもの）、確信度の低い順の6列の表（承認・ID・推奨・確信度・見立て・詳細）。ID 欄にチェッカー名、見立て欄に区分を副行で添え、グループは「G1（3 件）」と書く。",
+      "knowledge": "K-83"
+    },
+    {
+      "id": "C-26",
+      "text": "詳細レポート cid/<ID>.html：見出し「<CID> — <チェッカー>（<Impact>）」、節は 1. 結論（推奨・確信度と理由・見立て・注意（リビジョンのずれ））→ 2. 警告の概要（7列 CID・チェッカー・ファイル・関数・行・Impact・CWE（無ければ -）とチェッカーの説明）→ 3. 真偽の根拠（CID ごとの番号付き警告経路、警告の場所に ★、調査結果と根拠の箇所）→ 4. 案A: 逸脱 → 5. 案B: 修正（概要・影響とリスク・ブランチ・色分けした差分（400行まで）・差分ファイル・修正後のファイル）→（ビルドでの検証・独立した検証）→ 6. 処理情報（調べたコード・修正の元にしたリビジョン）。案の順は「逸脱 → 修正」。",
+      "knowledge": "K-84"
+    },
+    {
+      "id": "C-27",
+      "text": "ファイルの置き場所：<output_dir>/<YYYYmmdd-HHMMSS>/ の中に、一覧 summary.html（options.markdown なら summary.md も）、詳細 cid/<ID>.html（と .md）、差分 patches/<ID>-fix.patch（git 形式）、修正後のファイル fixed/<ID>/fix/<リポジトリ内のパス>、approvals.json など。修正後のファイルと差分は警告ごとに独立したコピーで作り、ほかの修正を混ぜない。",
+      "knowledge": "K-85"
+    },
+    {
+      "id": "C-28",
+      "text": "条件を付けないと「問題にならない」と言い切れないときは、推奨を修正にし、逸脱案は形として作って、言える範囲の理由だけを短く書く。「直さない理由は説明できない」は見本の文で、決まった書き方ではない。",
+      "knowledge": "K-97"
+    }
+  ],
+  "workers": [
+    {
+      "agent": "worker",
+      "label": "トリアージ役"
+    }
+  ],
+  "settings": [
+    {
+      "key": "condition_file",
+      "label": "条件ファイル",
+      "type": "text",
+      "default": "untriaged.yaml",
+      "required": true,
+      "help": ".coverity-triage/filters/ にある条件ファイルの名前（例 untriaged.yaml、all.yaml）。リポジトリごとに違い、filters/ に足して増やせます。"
+    },
+    {
+      "key": "impact",
+      "label": "Impact で絞る",
+      "type": "select",
+      "options": [
+        "絞らない",
+        "High",
+        "Medium",
+        "Low",
+        "Unspecified"
+      ],
+      "default": "絞らない",
+      "required": true,
+      "help": "Coverity の Impact で警告を絞り込む。「絞らない」なら Impact では絞らない。"
+    },
+    {
+      "key": "max_items",
+      "label": "調べる件数の上限",
+      "type": "number",
+      "default": 20,
+      "required": false,
+      "help": "調べる件数の上限。1 から 100 までの数を入れる。初めの値 20 は、既定の条件ファイルの上限。"
+    },
+    {
+      "key": "initial_analysis",
+      "label": "最初に解析するか",
+      "type": "select",
+      "options": [
+        "設定どおり",
+        "する",
+        "しない"
+      ],
+      "default": "設定どおり",
+      "required": true,
+      "help": "最初に解析するか。選択肢は「設定どおり」「する」「しない」。"
+    }
+  ],
+  "displays": [
+    {
+      "key": "worker_status",
+      "label": "作業ごとの様子",
+      "type": "table",
+      "when": "running"
+    },
+    {
+      "key": "errors",
+      "label": "重大なエラーと注意",
+      "type": "table",
+      "when": "running"
+    },
+    {
+      "key": "recent_activity",
+      "label": "最近の動き",
+      "type": "text",
+      "when": "running"
+    },
+    {
+      "key": "initial_analysis_progress",
+      "label": "初回解析の進み具合",
+      "type": "progress",
+      "when": "running"
+    },
+    {
+      "key": "overall_progress",
+      "label": "全体の進み具合",
+      "type": "progress",
+      "when": "running"
+    },
+    {
+      "key": "counts",
+      "label": "件数と承認の内訳",
+      "type": "kv",
+      "when": "finished"
+    },
+    {
+      "key": "results",
+      "label": "一覧",
+      "type": "table",
+      "when": "finished"
+    },
+    {
+      "key": "unprocessed",
+      "label": "処理できなかった作業と未処理の作業",
+      "type": "table",
+      "when": "finished"
+    },
+    {
+      "key": "detail_reports",
+      "label": "詳細レポート",
+      "type": "file",
+      "when": "finished"
+    },
+    {
+      "key": "patches",
+      "label": "差分と修正後のファイル",
+      "type": "file",
+      "when": "finished"
+    },
+    {
+      "key": "approval_links",
+      "label": "承認の選択と逸脱コメントの手直し",
+      "type": "text",
+      "when": "finished"
+    }
+  ]
+}
