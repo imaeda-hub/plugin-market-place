@@ -1,0 +1,69 @@
+{
+  "id": "T-02",
+  "prompt": "inputs/reader.c、inputs/config.yaml、inputs/fake-issues.yaml、inputs/all.yaml、inputs/.gitignore を使って、git の見本のリポジトリを作ってください（src/reader.c、.coverity-triage/config.yaml、.coverity-triage/fake-issues.yaml、.coverity-triage/filters/all.yaml、.gitignore を置き、main ブランチに1つコミット）。この config.yaml では統合と検証（agents.integration、agents.review）がオンです。そのリポジトリで、偽の Coverity の警告を条件ファイル all.yaml でトリアージし、統合と検証を通して、一覧 summary.html と詳細レポートまで作ってください。",
+  "inputs": [
+    "inputs/reader.c",
+    "inputs/config.yaml",
+    "inputs/fake-issues.yaml",
+    "inputs/all.yaml",
+    "inputs/.gitignore"
+  ],
+  "settings": {
+    "maxIterations": 3,
+    "task": {
+      "condition_file": "all.yaml",
+      "impact": "絞らない",
+      "max_items": 10,
+      "initial_analysis": "しない"
+    }
+  },
+  "criteria": [
+    {
+      "id": "C-16",
+      "text": "検証の AI は、結果を読む前に ★ の場所と経路の条件を自分で読み、独立に判断する。見る点は、根拠の場所・判定・修正（★ の経路を断っているか・最小限か・外部仕様を変えていないか・新しい MISRA / CERT 違反を作らないか）・逸脱コメント・確信度・グループと統合。",
+      "grading": "model"
+    },
+    {
+      "id": "C-17",
+      "text": "スクリプトが決まった方法で検証に示す点：根拠のファイル・行が存在しない、undetermined なのに確信度が高、リビジョンのずれがあるのに確信度が高、true_bug なのに逸脱を推奨、false_positive / intentional なのに修正を推奨、根拠がない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-18",
+      "text": "検証の結果は pass（合格：直すべき点がない）/ flag（要確認：人に確かめてほしい点があり、confidence_cap を必ず書く）/ rework（差し戻し：はっきりした誤りがあり、直す点を1点ずつ具体的に書く）。rework に当たるのは、根拠の行にそのコードが無い、判定がコードと合わない、修正が ★ の経路を断っていない、逸脱コメントの根拠の場所が違う、グループに原因の違う CID があるとき。言い回しや好みの違いは差し戻さない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-19",
+      "text": "人に見せる確信度は、作業の AI の確信度・検証の上限・ビルドでの検証の結果のうちいちばん低いものにする。下げるだけで上げない。result.json は書き換えない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-20",
+      "text": "統合でまとめるのは、原因が1つで、1か所を直せば（または1つの理由で）すべての警告が片付くものだけ。場所が近い・チェッカーが同じだけではまとめず、迷うときはまとめない。まとめる作業は2つ以上、1つの作業は1つのまとまりにだけ、CID は合わせて10件まで。",
+      "grading": "model"
+    },
+    {
+      "id": "C-25",
+      "text": "一覧 summary.html：見出し「トリアージ結果 <日時>」、その下に「条件: <条件名> ／ 警告 N 件（作業 M、うちグループ K）」、件数のタイル（警告・作業・修正の推奨・逸脱の推奨・確信度 低・エラー・未処理）、いまの承認の内訳（修正 / 逸脱 / 却下 / （空）/ 推奨から変えたもの）、確信度の低い順の6列の表（承認・ID・推奨・確信度・見立て・詳細）。ID 欄にチェッカー名、見立て欄に区分を副行で添え、グループは「G1（3 件）」と書く。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/summary.html",
+        "pattern": "トリアージ結果[\\s\\S]*承認[\\s\\S]*ID[\\s\\S]*推奨[\\s\\S]*確信度[\\s\\S]*見立て[\\s\\S]*詳細",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-26",
+      "text": "詳細レポート cid/<ID>.html：見出し「<CID> — <チェッカー>（<Impact>）」、節は 1. 結論（推奨・確信度と理由・見立て・注意（リビジョンのずれ））→ 2. 警告の概要（7列 CID・チェッカー・ファイル・関数・行・Impact・CWE（無ければ -）とチェッカーの説明）→ 3. 真偽の根拠（CID ごとの番号付き警告経路、警告の場所に ★、調査結果と根拠の箇所）→ 4. 案A: 逸脱 → 5. 案B: 修正（概要・影響とリスク・ブランチ・色分けした差分（400行まで）・差分ファイル・修正後のファイル）→（ビルドでの検証・独立した検証）→ 6. 処理情報（調べたコード・修正の元にしたリビジョン）。案の順は「逸脱 → 修正」。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/cid/*.html",
+        "pattern": "1\\. 結論[\\s\\S]*2\\. 警告の概要[\\s\\S]*3\\. 真偽の根拠[\\s\\S]*4\\. 案A[\\s\\S]*5\\. 案B[\\s\\S]*6\\. 処理情報",
+        "flags": ""
+      }
+    }
+  ]
+}

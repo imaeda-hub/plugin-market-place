@@ -1,0 +1,480 @@
+"""MCP server ``coverity-triage``: communication with Coverity Connect only.
+
+Each tool returns within about 20 seconds, because the Copilot runtime stops an MCP tool call after
+30 seconds by default. When work remains, the tool returns ``done: false`` and the agent calls it
+again with the same arguments; work already saved is not repeated.
+
+Results go to the files that the scripts of the skill ``coverity-triage-scripts`` name, so that large
+data does not pass through the conversation. A call on the files of a run folder is also written to
+the run's ``operations.log`` (start, end or error), which the monitor of ``ct.py gui`` shows.
+"""
+
+from __future__ import annotations
+
+import functools
+import hashlib
+import inspect
+import json
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable
+
+import anyio
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.runner import serve_loop
+from mcp.server.stdio import stdio_server
+from mcp.types import ToolAnnotations
+from pydantic import ValidationError
+
+from .connect import check_auth
+from .coverity import CoverityClient, CoverityError, make_client
+from .envvars import get_env
+from .models import TriageAttributes, TriageEntry
+from .settings import SettingsError, load_coverity_config, load_filter
+
+BUDGET = 20.0  # seconds one tool call may use
+DEFAULT_LIMIT = 100
+MAX_CIDS = 50
+MAX_EXCLUDED_SAMPLES = 50  # rows left out after the search, kept in issues.json to find the cause
+CALL_AGAIN = "続きがあります。同じ引数でもう一度呼んでください"
+RUN_FILE = "run.json"  # marks a run folder of the scripts (ct.py new-run)
+LOG_FILE = "operations.log"  # the run's log, shared with the scripts (one JSON object per line)
+
+mcp = MCPServer(
+    name="coverity-triage",
+    instructions=(
+        "Coverity Connect との通信だけを行うツールです。引数のパスは、スキル coverity-triage-scripts の"
+        "スクリプト（ct.py）が返したものを絶対パスのまま渡します。"
+        "結果に done: false があれば、同じ引数でもう一度呼びます。"
+    ),
+)
+
+
+class Activity:
+    """Lines of one tool call in the run's operations.log, read by the monitor of ``ct.py gui``.
+
+    Only a call on the files of a run folder (a folder with run.json) is recorded. Recording is best
+    effort: a failure to write never changes what the tool does. Values of the credential environment
+    variables are masked, as the scripts do.
+    """
+
+    def __init__(self, tool: str, run_dir: Path | None, repo_root: Any, fields: dict[str, Any]):
+        self.tool = tool
+        self.run_dir = run_dir
+        self.repo_root = repo_root
+        self.fields = fields
+        self._secrets: list[str] | None = None
+
+    @classmethod
+    def of(cls, func: Callable[..., Any], locate: Callable[[dict[str, Any]], tuple[Path, dict[str, Any]]] | None,
+           args: tuple[Any, ...], kwargs: dict[str, Any]) -> Activity:
+        run_dir, fields, repo_root = None, {}, None
+        if locate is not None:
+            try:
+                arguments = inspect.signature(func).bind_partial(*args, **kwargs).arguments
+                repo_root = arguments.get("repo_root")
+                folder, fields = locate(arguments)
+                if folder.is_absolute() and (folder / RUN_FILE).is_file():
+                    run_dir = folder
+            except Exception:  # noqa: BLE001 - bad arguments are reported by the tool itself
+                run_dir = None
+        return cls(func.__name__, run_dir, repo_root, fields)
+
+    def secrets(self) -> list[str]:
+        if self._secrets is None:
+            names = ["COV_USER", "COV_AUTH_KEY"]
+            try:
+                config = load_coverity_config(self.repo_root)
+                names = [config.user_env, config.key_env]
+            except Exception:  # noqa: BLE001 - the settings may be what failed
+                pass
+            self._secrets = [v for v in (get_env(n) for n in names) if v]
+        return self._secrets
+
+    def _mask(self, value: Any) -> Any:
+        if isinstance(value, str):
+            for secret in self.secrets():
+                value = value.replace(secret, "****")
+            return value
+        if isinstance(value, dict):
+            return {k: self._mask(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._mask(v) for v in value]
+        return value
+
+    def write(self, phase: str, level: str = "info", **fields: Any) -> None:
+        if self.run_dir is None:
+            return
+        try:
+            record = {"time": _now(), "event": f"mcp:{self.tool}", "level": level, "source": "mcp",
+                      "phase": phase, **self.fields, **fields}
+            line = json.dumps(self._mask(record), ensure_ascii=False, default=str)
+            with open(self.run_dir / LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception:  # noqa: BLE001 - the log never stops the tool
+            pass
+
+    def end(self, result: Any, outcome: Callable[[Any], tuple[str, dict[str, Any]]] | None) -> None:
+        if self.run_dir is None:
+            return
+        try:
+            level, fields = outcome(result) if outcome else ("info", {})
+        except Exception:  # noqa: BLE001 - the log never stops the tool
+            level, fields = "info", {}
+        self.write("end", level, **fields)
+
+
+def tool(title: str, locate: Callable[[dict[str, Any]], tuple[Path, dict[str, Any]]] | None = None,
+         outcome: Callable[[Any], tuple[str, dict[str, Any]]] | None = None, **hints: bool):
+    """Register a tool and turn expected errors into messages the agent can act on.
+
+    ``locate`` gives, from the arguments, the folder that may be a run folder and the fields of every
+    line of the call in its operations.log; ``outcome`` gives the level and fields of the end line
+    from the result (a partial failure is a warning). An error is critical."""
+    def register(func):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            activity = Activity.of(func, locate, args, kwargs)
+            activity.write("start")
+            try:
+                result = func(*args, **kwargs)
+            except (SettingsError, CoverityError, ValueError, OSError) as exc:
+                activity.write("error", "critical", error=str(exc))
+                raise ToolError(str(exc)) from exc
+            except Exception as exc:
+                activity.write("error", "critical", error=f"{type(exc).__name__}: {exc}")
+                raise
+            activity.end(result, outcome)
+            return result
+        annotations = ToolAnnotations(title=title, open_world_hint=False, **hints)
+        return mcp.tool(title=title, annotations=annotations)(wrapper)
+    return register
+
+
+class Deadline:
+    def __init__(self, budget: float = BUDGET):
+        self.started = time.monotonic()
+        self.budget = budget
+
+    def elapsed(self) -> float:
+        return time.monotonic() - self.started
+
+    def left(self) -> float:
+        return self.budget - self.elapsed()
+
+    def allows(self, client: CoverityClient, requests: int = 1) -> bool:
+        """Whether ``requests`` more requests are expected to end within the budget."""
+        return self.elapsed() + requests * client.request_seconds() <= self.budget
+
+
+def _path(value: str, name: str) -> Path:
+    # The server runs in its own folder (uv run --directory), so a relative path would point there.
+    path = Path(value)
+    if not path.is_absolute():
+        raise ValueError(f"{name} は絶対パスで指定してください: {value}")
+    return path
+
+
+def _folder(value: str, name: str) -> Path:
+    path = _path(value, name)
+    if not path.is_dir():
+        raise ValueError(f"{name} のフォルダがありません: {path}（ct.py が作ったパスを渡してください）")
+    return path
+
+
+def _now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ValueError(f"ファイルを読めません: {path}: {exc}") from exc
+
+
+def _write_json(path: Path, data: Any) -> None:
+    """Write via a temporary file so an interrupted call never leaves half a file."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+@tool("Coverity 接続の確認", read_only_hint=True)
+def check_connection(repo_root: str) -> dict[str, Any]:
+    """設定ファイル（<repo_root>/.coverity-triage/config.yaml）の Coverity に、認証情報の環境変数で
+    1 回だけ読み取りの問い合わせをし、認証できるかを確かめる（10 秒以内）。認証キーの値は返さない。"""
+    config = load_coverity_config(_folder(repo_root, "repo_root"))
+    if config.api == "fake":
+        make_client(config).close()  # checks that the file exists
+        return {"ok": True, "result": "偽データを使う設定です（coverity.api: fake）", "fake_data": config.fake_data}
+    out = check_auth(config)
+    out["url"] = config.url
+    if config.url.lower().startswith("http://"):
+        out["warning"] = ("URL が http です。認証キーが暗号化されずに送られます。"
+                          "https が使えるか Coverity の管理者に確認してください")
+    return out
+
+
+def _plugin_root() -> Path:
+    """The plugin's folder. The Copilot CLI gives a stdio MCP server PLUGIN_ROOT; the server also runs in
+    <plugin>/server (uv run --directory), and its source is in <plugin>/server/src."""
+    candidates = [os.environ.get("PLUGIN_ROOT"), str(Path.cwd().parent), str(Path(__file__).resolve().parents[3])]
+    for value in candidates:
+        if value and (Path(value) / "plugin.json").is_file():
+            return Path(value).resolve()
+    raise ValueError("このプラグインのフォルダが見つかりません（plugin.json がありません）")
+
+
+@tool("このプラグインの場所", read_only_hint=True)
+def plugin_paths() -> dict[str, Any]:
+    """このプラグインのフォルダと、スクリプト ct.py と手順書（skills）の絶対パスを返す。Coverity とは通信しない。
+    作業の画面から動く作業役の AI が、スキルの道具を使わずに ct.py と手順書を見つけるためのもの。"""
+    root = _plugin_root()
+    ct = root / "skills" / "coverity-triage-scripts" / "scripts" / "ct.py"
+    return {"plugin_root": str(root), "skills_dir": str(root / "skills"), "ct_py": str(ct),
+            "run_ct": f'uv run --native-tls "{ct}"', "ct_py_exists": ct.is_file()}
+
+
+def _search_log(args: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
+    return Path(args["output_file"]).parent, {}
+
+
+def _search_outcome(out: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    # Without the analyzed revision the run goes on with the local code: a partial failure.
+    return ("warning" if out["revision_error"] else "info",
+            {"done": out["done"], "found": out["found"], "limited": out["limited"], "excluded": out["excluded"],
+             "revision_error": out["revision_error"]})
+
+
+@tool("Coverity の警告の検索", locate=_search_log, outcome=_search_outcome,
+      read_only_hint=False, destructive_hint=False, idempotent_hint=True)
+def search_issues(repo_root: str, filter_file: str, output_file: str) -> dict[str, Any]:
+    """条件のファイル（ct.py new-run が作る filter.json）で Coverity の警告を検索し、output_file
+    （issues.json）に保存する。条件の limit 件で止める。最新スナップショットの解析リビジョンも記録する。
+    done が false なら、同じ引数でもう一度呼ぶ（保存済みの続きから検索する）。
+    coverity_total は Coverity が検索で返した件数（ストリーム・チェッカー・Impact・Classification・
+    Action で絞った数）。found はそのうち Status とワイルドカードのチェッカーの条件にも合った件数。
+    条件に合わずに外した件数は excluded で、外した警告と合わなかった項目の値は output_file の
+    excluded に残る。"""
+    deadline = Deadline()
+    config = load_coverity_config(_folder(repo_root, "repo_root"))
+    filter_path = _path(filter_file, "filter_file")
+    spec = load_filter(filter_path)
+    out = _path(output_file, "output_file")
+    _folder(str(out.parent), "output_file の保存先")
+    filter_sha = _sha(filter_path.read_bytes())[:12]
+    state = _read_json(out) if out.is_file() else None
+    if not isinstance(state, dict) or state.get("filter_sha") != filter_sha:
+        state = {"filter_sha": filter_sha, "stream": spec.streams[0], "limit": spec.limit or DEFAULT_LIMIT,
+                 "started_at": _now(), "finished_at": None, "coverity_total": None, "next_offset": 0,
+                 "limited": False, "revision_field": config.revision_field or None,
+                 "revision_checked": not config.revision_field, "analyzed_revision": None,
+                 "revision_error": None, "issues": [], "excluded_count": 0, "excluded": [],
+                 "requests": []}
+    limit = state["limit"]
+    client = make_client(config)
+    try:
+        if state["next_offset"] is not None and deadline.allows(client):
+            page = client.search(spec, limit - len(state["issues"]), state["next_offset"], deadline.left())
+            known = {i["cid"] for i in state["issues"]}
+            # A new snapshot between calls can shift the pages; never keep a CID twice.
+            found = [i.model_dump(exclude_none=True) for i in page.issues if i.cid not in known]
+            state["issues"] += found
+            seen = {e["cid"] for e in state.setdefault("excluded", [])}
+            new = [e for e in page.excluded if e["cid"] not in seen]
+            state["excluded_count"] = state.get("excluded_count", 0) + len(new)
+            state["excluded"] += new[:max(0, MAX_EXCLUDED_SAMPLES - len(state["excluded"]))]
+            state["coverity_total"] = page.total
+            if len(state["issues"]) >= limit:
+                state["limited"] = len(state["issues"]) > limit or page.next_offset is not None
+                state["issues"] = state["issues"][:limit]
+                state["next_offset"] = None
+            else:
+                state["next_offset"] = page.next_offset
+        if state["next_offset"] is None and not state["revision_checked"] and deadline.allows(client, 2):
+            try:
+                state["analyzed_revision"] = client.snapshot_revision(state["stream"], state["revision_field"])
+            except CoverityError as exc:
+                if exc.fatal:
+                    raise
+                state["revision_error"] = str(exc)  # the run goes on with the local code
+            state["revision_checked"] = True
+    finally:
+        state["requests"] += client.requests
+        client.close()
+        done = state["next_offset"] is None and state["revision_checked"]
+        if done and not state["finished_at"]:
+            state["finished_at"] = _now()
+        _write_json(out, state)
+    excluded = state.get("excluded_count", 0)
+    return {"done": done, "found": len(state["issues"]), "limit": limit, "limited": state["limited"],
+            "coverity_total": state["coverity_total"], "excluded": excluded,
+            "excluded_note": (f"Coverity が返した警告のうち {excluded} 件が、検索のあとの条件（Status など）に"
+                              f"合わず外れました。合わなかった項目と値は {out} の excluded にあります")
+            if excluded else None, "analyzed_revision": state["analyzed_revision"],
+            "revision_error": state["revision_error"], "seconds": round(deadline.elapsed(), 1),
+            "output_file": str(out), "next": None if done else CALL_AGAIN}
+
+
+def _issues_log(args: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
+    # output_dir is <run>/items/<ID>
+    folder = Path(args["output_dir"])
+    return folder.parent.parent, {"item": folder.name, "cids": list(args.get("cids") or [])[:MAX_CIDS]}
+
+
+def _issues_outcome(out: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    failed = [int(c) if str(c).isdigit() else c for c in out["failed"]]
+    return ("warning" if failed else "info",
+            {"done": out["done"], "saved": len(out["saved"]), "already_saved": len(out["already_saved"]),
+             "failed": failed, "remaining": len(out["remaining"])})
+
+
+@tool("Coverity の警告経路の取得", locate=_issues_log, outcome=_issues_outcome,
+      read_only_hint=False, destructive_hint=False, idempotent_hint=True)
+def get_issues(repo_root: str, stream: str, cids: list[int], output_dir: str) -> dict[str, Any]:
+    """CID ごとに警告経路（イベント）とチェッカーの説明を取り、output_dir に issue-<CID>.json として
+    保存する。取れなかった CID は、理由を error に書いた issue-<CID>.json を保存する。
+    保存済みの CID は取り直さない。done が false なら、同じ引数でもう一度呼ぶ。"""
+    deadline = Deadline()
+    config = load_coverity_config(_folder(repo_root, "repo_root"))
+    folder = _folder(output_dir, "output_dir")
+    wanted = list(dict.fromkeys(cids))
+    if not wanted or len(wanted) > MAX_CIDS:
+        raise ValueError(f"cids は 1〜{MAX_CIDS} 件で指定してください（{len(wanted)} 件）")
+    saved: list[int] = []
+    already: list[int] = []
+    failed: dict[str, str] = {}
+    remaining: list[int] = []
+    client = make_client(config)
+    try:
+        for cid in wanted:
+            file = folder / f"issue-{cid}.json"
+            if file.is_file():
+                already.append(cid)
+            elif not deadline.allows(client):
+                remaining.append(cid)
+            else:
+                try:
+                    detail = client.issue_detail(cid, stream)
+                except CoverityError as exc:
+                    if exc.fatal:
+                        raise
+                    failed[str(cid)] = str(exc)
+                    _write_json(file, {"cid": cid, "stream": stream, "fetched_at": _now(), "error": str(exc)})
+                    continue
+                _write_json(file, {"fetched_at": _now(), **detail.model_dump(exclude_none=True)})
+                saved.append(cid)
+    finally:
+        client.close()
+    done = not remaining
+    return {"done": done, "saved": saved, "already_saved": already, "failed": failed,
+            "remaining": remaining, "seconds": round(deadline.elapsed(), 1),
+            "next": None if done else CALL_AGAIN}
+
+
+def _triage_log(args: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
+    return Path(args["plan_file"]).parent, {}
+
+
+def _triage_outcome(out: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    failed = [f["id"] for f in out["failed"]]
+    return ("warning" if failed else "info",
+            {"done": out["done"], "written": out["written"], "written_total": out["written_total"],
+             "entries": out["entries"], "failed": failed, "remaining": len(out["remaining"])})
+
+
+@tool("Coverity へのトリアージの書き戻し", locate=_triage_log, outcome=_triage_outcome,
+      read_only_hint=False, destructive_hint=True, idempotent_hint=True)
+def update_triage(repo_root: str, plan_file: str, confirmation_token: str) -> dict[str, Any]:
+    """反映の内容（ct.py preview が作る apply-plan.json）の triage の各項目を、Coverity のトリアージ
+    （分類・対応・重大度・コメント）に書き込む。confirmation_token は ct.py preview が返した確認用の
+    文字列で、人が件数を見て同意した後にだけ渡す。ファイルの中身と合わなければ何も書かない。
+    結果は apply-plan.result.json に残し、書き込み済みの項目は書き直さない。
+    done が false なら、同じ引数でもう一度呼ぶ。"""
+    deadline = Deadline()
+    config = load_coverity_config(_folder(repo_root, "repo_root"))
+    plan_path = _path(plan_file, "plan_file")
+    raw = plan_path.read_bytes()
+    token = _sha(raw)[:12]
+    if confirmation_token.strip() != token:
+        raise ValueError("確認用の文字列が反映の内容と一致しません。ct.py preview をやり直し、"
+                         "件数を人に見せて同意を得てから呼んでください")
+    try:
+        entries = [TriageEntry.model_validate(e) for e in json.loads(raw.decode("utf-8")).get("triage") or []]
+    except (ValueError, AttributeError, ValidationError) as exc:
+        raise ValueError(f"反映の内容を読めません: {plan_path}: {exc}") from exc
+    result_path = plan_path.with_name(plan_path.stem + ".result.json")
+    result = _read_json(result_path) if result_path.is_file() else {}
+    result.setdefault("written", {})
+    result.setdefault("failed", {})
+    result.setdefault("requests", [])
+    written_now: list[str] = []
+    remaining: list[str] = []
+    client = make_client(config)
+    try:
+        for entry in entries:
+            # Keyed by content: an entry the person changed after writing is written again.
+            key = _sha(entry.model_dump_json().encode("utf-8"))[:16]
+            if key in result["written"] or result["failed"].get(key, {}).get("token") == token:
+                continue
+            if not deadline.allows(client):
+                remaining.append(entry.id)
+                continue
+            attributes = TriageAttributes(classification=entry.classification, action=entry.action,
+                                          severity=entry.severity)
+            try:
+                client.write_triage(entry.cids, attributes, entry.comment)
+            except CoverityError as exc:
+                if exc.fatal:
+                    raise
+                result["failed"][key] = {"id": entry.id, "cids": entry.cids, "error": str(exc),
+                                         "token": token, "at": _now()}
+                continue
+            result["written"][key] = {"id": entry.id, "cids": entry.cids, "at": _now()}
+            result["failed"].pop(key, None)
+            written_now.append(entry.id)
+            _write_json(result_path, result)
+    finally:
+        result["requests"] += client.requests
+        client.close()
+        _write_json(result_path, result)
+    keys = {_sha(e.model_dump_json().encode("utf-8"))[:16] for e in entries}
+    failed = [{"id": v["id"], "cids": v["cids"], "error": v["error"]}
+              for k, v in result["failed"].items() if k in keys]
+    done = not remaining
+    return {"done": done, "written": written_now,
+            "written_total": sum(1 for k in result["written"] if k in keys), "entries": len(entries),
+            "failed": failed, "remaining": remaining, "result_file": str(result_path),
+            "seconds": round(deadline.elapsed(), 1), "next": None if done else CALL_AGAIN}
+
+
+async def serve_stdio() -> None:
+    """Serve over stdio with the initialize handshake only (protocol 2025-11-25 and older).
+
+    ``MCPServer.run("stdio")`` lets the client's first request choose the protocol era. A client
+    that first probes ``server/discover`` (2026-07-28) and then falls back to ``initialize`` on the
+    same connection, as GitHub Copilot does when the first start is slow, is refused with -32022
+    once the probe has locked the connection to 2026-07-28. Serving the handshake era only makes
+    the probe fail, and the client's fallback ``initialize`` succeeds. Every client this plugin
+    supports speaks the handshake era.
+    """
+    server = mcp._lowlevel_server  # the same object MCPServer.run_stdio_async serves
+    async with stdio_server() as (read_stream, write_stream), server.lifespan(server) as state:
+        await serve_loop(server, read_stream, write_stream, lifespan_state=state,
+                         init_options=server.create_initialization_options())
+
+
+def main() -> None:
+    anyio.run(serve_stdio)
+
+
+if __name__ == "__main__":
+    main()

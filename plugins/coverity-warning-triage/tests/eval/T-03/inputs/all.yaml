@@ -1,0 +1,4 @@
+name: CERT（全件）
+project: Sample
+streams: [Sample-main]
+checkers: ["CERT *"]

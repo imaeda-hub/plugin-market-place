@@ -1,0 +1,17 @@
+# 動作確認（/coverity-selftest）の見本の設定。偽の Coverity データ（fake-issues.yaml）を使います。
+coverity:
+  url: https://coverity.example.co.jp:8443
+  api: fake
+  fake_data: fake-issues.yaml
+  revision_field: sourceVersion
+vcs:
+  type: git
+  base_branch: main
+  branch_prefix: coverity-fix/
+output_dir: ../coverity-triage-out
+max_items: 100
+parallel: 3
+agents:
+  integration: true
+  review: true
+  max_rework: 1

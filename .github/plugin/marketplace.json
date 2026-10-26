@@ -18,6 +18,12 @@
       "description": "C/C++ の組み込み機器のデバッグを、利用者のルールに従ったビルド・デプロイ・実機ログの分析を PDS のループで繰り返して自律的に進めるプラグイン",
       "version": "0.1.0",
       "source": "./plugins/embedded-debug-loop"
+    },
+    {
+      "name": "coverity-warning-triage",
+      "description": "Coverity Connect の警告をトリアージし、警告ごとに修正案と逸脱コメント案の両方を作るプラグイン（C / C++、標準・MISRA・CERT）",
+      "version": "0.1.0",
+      "source": "./plugins/coverity-warning-triage"
     }
   ]
 }

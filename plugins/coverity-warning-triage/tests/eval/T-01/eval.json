@@ -1,0 +1,164 @@
+{
+  "id": "T-01",
+  "prompt": "inputs/reader.c、inputs/config.yaml、inputs/fake-issues.yaml、inputs/all.yaml、inputs/.gitignore を使って、git の見本のリポジトリを作ってください（src/reader.c、.coverity-triage/config.yaml、.coverity-triage/fake-issues.yaml、.coverity-triage/filters/all.yaml、.gitignore を置き、main ブランチに1つコミット）。そのリポジトリで、偽の Coverity（config.yaml の api: fake）の警告を条件ファイル all.yaml でトリアージし、一覧 summary.html と詳細レポートまで作ってください。",
+  "inputs": [
+    "inputs/reader.c",
+    "inputs/config.yaml",
+    "inputs/fake-issues.yaml",
+    "inputs/all.yaml",
+    "inputs/.gitignore"
+  ],
+  "settings": {
+    "maxIterations": 3,
+    "task": {
+      "condition_file": "all.yaml",
+      "impact": "絞らない",
+      "max_items": 10,
+      "initial_analysis": "しない"
+    }
+  },
+  "criteria": [
+    {
+      "id": "C-01",
+      "text": "呼び出し元の判断：すべての呼び出し元が経路の条件を満たさないなら経路は成り立たない。1つでも満たす呼び出し元があれば、経路は成り立ちうる。",
+      "grading": "model"
+    },
+    {
+      "id": "C-02",
+      "text": "判定区分は4つ。true_bug（本物のバグ：経路が成り立ち、実際に問題が起きる）、false_positive（誤検知：経路が成り立たない）、intentional（意図的：経路は成り立つが設計どおり）、undetermined（判定できない：コードからは決められない）。",
+      "grading": "model"
+    },
+    {
+      "id": "C-03",
+      "text": "確信度の基準：高は警告経路をコードで最後まで追え、根拠がすべてコードにある。中は根拠の一部に推定がある（例：呼び出し元がリポジトリにない）。低はコードから決められない前提によるか、リビジョンのずれがある。confidence_reason にどの基準に当たるかを具体的に書き、レポートでは確信度に括弧で理由を添える。",
+      "grading": "model"
+    },
+    {
+      "id": "C-04",
+      "text": "推奨の決め方：true_bug は修正。false_positive / intentional は、どんな状況でも問題にならないことを条件や但し書きなしに逸脱コメントに書けるときだけ逸脱で、書けなければ修正（小さく安全な修正なら修正も可）。undetermined はリスクが小さければ修正、大きければ逸脱で、確信度は低。",
+      "grading": "model"
+    },
+    {
+      "id": "C-05",
+      "text": "警告の内容にかかわらず、修正案と逸脱コメント案の両方を必ず作る（誤検知でも修正案を作る）。どちらを採用するかは人が決める。",
+      "grading": "model"
+    },
+    {
+      "id": "C-06",
+      "text": "修正は最小限にする（警告をなくすのに必要な箇所だけ。リファクタリング・整形・関係のない改善はしない）。",
+      "grading": "model"
+    },
+    {
+      "id": "C-07",
+      "text": "修正で関数の外部仕様（引数・戻り値・公開ヘッダ・グローバル変数のインタフェース）を変えない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-08",
+      "text": "修正によって MISRA / CERT の別の規則に新しく違反しない（暗黙の型変換を増やさない、関数の出口を増やすなら既存の書き方に従う）。",
+      "grading": "model"
+    },
+    {
+      "id": "C-09",
+      "text": "逸脱コメントは、この警告がどんな状況でも問題にならないことを述べる文で、日本語・見出しなしの1〜2文、200字以内にする。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/items/*/result.json",
+        "pattern": "\"comment\"\\s*:\\s*\"(?!#)[^\"\\n]{1,200}\"",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-10",
+      "text": "逸脱コメントの順は、判定区分（「誤検知。」「意図的。」「本物の不具合。」を先頭に）→ 問題にならない理由（条件なしで言い切る）→ コードの根拠の場所（例 read_all()（src/io/reader.c:120）、範囲は src/reader.c:55〜60）。例：「誤検知。get_buf() の戻り値は NULL になりうるが、呼び出し元 read_all()（src/io/reader.c:120）で NULL を除いてから渡しているため、NULL を参照することはない。」",
+      "grading": "model"
+    },
+    {
+      "id": "C-11",
+      "text": "逸脱コメントに書かないもの：条件や但し書き（「ただし〜の場合に限る」）、調べた過程や調べきれなかったこと（verdict.rationale へ）、推奨や人への依頼（「修正を推奨」「確認してください」）。",
+      "grading": "model"
+    },
+    {
+      "id": "C-12",
+      "text": "根拠はすべてコードの場所（ファイルと行）で示す。根拠の場所（evidence、逸脱コメントの場所）には、調べて実際に読んだ場所だけを、リポジトリの一番上からの相対パスと行で書き、推測で書かない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-13",
+      "text": "作業ごとの結果ファイル result.json は item / verdict（judgement・summary・rationale・evidence[file, line, note]）/ recommendation（fix | deviation）/ confidence（high | medium | low）/ confidence_reason / deviation（classification・action・severity・comment）/ fix（classification・action・severity・summary・impact・exceeded_constraints・already_fixed_on_latest）/ revision_drift / group_excluded_cids を持ち、文字列は空にせず、余計なキーを入れない。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/items/*/result.json",
+        "pattern": "\"recommendation\"\\s*:\\s*\"(fix|deviation)\"",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-14",
+      "text": "verdict.summary（一覧の「見立て」）は40字くらいの1行で判断の決め手を書く。人はまず一覧の「見立て」と詳細レポートの「結論」だけを読むので、そこだけで判断できるようにする。verdict.rationale には経路のどの段階をどう確かめたかを順に書く。",
+      "grading": "model"
+    },
+    {
+      "id": "C-15",
+      "text": "結果を書く前に3つ確かめる：修正するフォルダを直したか（変更がなく already_fixed_on_latest も true でなければ不合格）、アノテーションを入れたか（オプションのとき）、調べるコードと作業中のファイルを変えていないか。",
+      "grading": "model"
+    },
+    {
+      "id": "C-19",
+      "text": "人に見せる確信度は、作業の AI の確信度・検証の上限・ビルドでの検証の結果のうちいちばん低いものにする。下げるだけで上げない。result.json は書き換えない。",
+      "grading": "model"
+    },
+    {
+      "id": "C-21",
+      "text": "標準チェッカーの観点：NULL_RETURNS / FORWARD_NULL / REVERSE_INULL は呼び出し元の保証・直前の検証・戻らない関数があれば誤検知。RESOURCE_LEAK は所有権が呼び出し元や構造体に移っていれば誤検知（修正は goto cleanup など既存の後始末に合わせる）。OVERRUN 系は添字・サイズを定義元までたどり終端文字の1バイトに注意。UNINIT は到達しない分岐や出力引数の初期化を見落とすことがある。DEADCODE / UNREACHABLE は構成依存なら intentional、MISSING_BREAK は意図的なフォールスルーなら intentional。",
+      "grading": "model"
+    },
+    {
+      "id": "C-22",
+      "text": "MISRA の判定：本当に違反していれば true_bug、規則の対象外なら false_positive、違反だが設計上必要で安全性を説明できれば intentional。Mandatory は逸脱できないので修正を推奨、Required は正式な逸脱の手続きが要る、Advisory は比較的柔軟。1つのマクロや型定義が原因で大量に出る違反は原因の1か所を直す。",
+      "grading": "model"
+    },
+    {
+      "id": "C-24",
+      "text": "人が承認して反映するまで、利用者の作業中のファイルも Coverity のトリアージ（分類・コメント）も変えない（例外は初回解析の登録だけ）。修正案はリポジトリの外にスクリプトが用意する修正用のコピー（git worktree / svn checkout）の上で作り、調べるコードは読むだけにする。",
+      "grading": "program",
+      "check": {
+        "type": "unchanged",
+        "file": "inputs/reader.c"
+      }
+    },
+    {
+      "id": "C-25",
+      "text": "一覧 summary.html：見出し「トリアージ結果 <日時>」、その下に「条件: <条件名> ／ 警告 N 件（作業 M、うちグループ K）」、件数のタイル（警告・作業・修正の推奨・逸脱の推奨・確信度 低・エラー・未処理）、いまの承認の内訳（修正 / 逸脱 / 却下 / （空）/ 推奨から変えたもの）、確信度の低い順の6列の表（承認・ID・推奨・確信度・見立て・詳細）。ID 欄にチェッカー名、見立て欄に区分を副行で添え、グループは「G1（3 件）」と書く。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/summary.html",
+        "pattern": "トリアージ結果[\\s\\S]*承認[\\s\\S]*ID[\\s\\S]*推奨[\\s\\S]*確信度[\\s\\S]*見立て[\\s\\S]*詳細",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-26",
+      "text": "詳細レポート cid/<ID>.html：見出し「<CID> — <チェッカー>（<Impact>）」、節は 1. 結論（推奨・確信度と理由・見立て・注意（リビジョンのずれ））→ 2. 警告の概要（7列 CID・チェッカー・ファイル・関数・行・Impact・CWE（無ければ -）とチェッカーの説明）→ 3. 真偽の根拠（CID ごとの番号付き警告経路、警告の場所に ★、調査結果と根拠の箇所）→ 4. 案A: 逸脱 → 5. 案B: 修正（概要・影響とリスク・ブランチ・色分けした差分（400行まで）・差分ファイル・修正後のファイル）→（ビルドでの検証・独立した検証）→ 6. 処理情報（調べたコード・修正の元にしたリビジョン）。案の順は「逸脱 → 修正」。",
+      "grading": "program",
+      "check": {
+        "type": "regex",
+        "file": "**/cid/*.html",
+        "pattern": "1\\. 結論[\\s\\S]*2\\. 警告の概要[\\s\\S]*3\\. 真偽の根拠[\\s\\S]*4\\. 案A[\\s\\S]*5\\. 案B[\\s\\S]*6\\. 処理情報",
+        "flags": ""
+      }
+    },
+    {
+      "id": "C-27",
+      "text": "ファイルの置き場所：<output_dir>/<YYYYmmdd-HHMMSS>/ の中に、一覧 summary.html（options.markdown なら summary.md も）、詳細 cid/<ID>.html（と .md）、差分 patches/<ID>-fix.patch（git 形式）、修正後のファイル fixed/<ID>/fix/<リポジトリ内のパス>、approvals.json など。修正後のファイルと差分は警告ごとに独立したコピーで作り、ほかの修正を混ぜない。",
+      "grading": "program",
+      "check": {
+        "type": "file_exists",
+        "file": "**/patches/*-fix.patch"
+      }
+    }
+  ]
+}
