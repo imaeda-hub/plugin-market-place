@@ -24,6 +24,12 @@
       "description": "Coverity Connect の警告をトリアージし、警告ごとに修正案と逸脱コメント案の両方を作るプラグイン（C / C++、標準・MISRA・CERT）",
       "version": "0.1.0",
       "source": "./plugins/coverity-warning-triage"
+    },
+    {
+      "name": "ng-repro-pick",
+      "description": "試験部門から毎週届く試験結果の Excel と試験仕様書の Word から、最初に実機の台で再現させる NG を1つ選び、pick.md のメモにするプラグイン",
+      "version": "0.1.0",
+      "source": "./plugins/ng-repro-pick"
     }
   ]
 }
