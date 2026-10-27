@@ -1,0 +1,12 @@
+{
+  "name": "ng-repro-pick",
+  "owner": {
+    "name": "ng-repro-pick"
+  },
+  "plugins": [
+    {
+      "name": "ng-repro-pick",
+      "source": "./"
+    }
+  ]
+}

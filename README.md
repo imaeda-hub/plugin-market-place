@@ -21,10 +21,13 @@ copilot plugin install <プラグインの名前>@plugin-market-place
 | [weekly-sales-report](plugins/weekly-sales-report/) | 毎週の売上データ（sales.csv）から、部長に出す週報 weekly_report.md を作る | 0.1.0 |
 | [embedded-debug-loop](plugins/embedded-debug-loop/) | C/C++ の組み込み機器のデバッグを、利用者のルールに従ったビルド・デプロイ・実機ログの分析を PDS のループで繰り返して自律的に進める | 0.1.0 |
 | [coverity-warning-triage](plugins/coverity-warning-triage/) | Coverity Connect の警告をトリアージし、警告ごとに修正案と逸脱コメント案の両方を作る（C / C++、標準・MISRA・CERT）。既存のプラグイン coverity-triage を plugin-creator で作り直したもの | 0.1.0 |
+| [ng-repro-pick](plugins/ng-repro-pick/) | 試験部門から毎週届く試験結果の Excel と試験仕様書の Word から、最初に実機の台で再現させる NG を1つ選び、pick.md のメモにする | 0.1.0 |
 
 weekly-sales-report は、plugin-creator の試験で作った見本です。AI が演じたユーザー（営業チームのリーダー）と plugin-creator が会話して作りました。中に出てくる人の名前や売上の数字は、架空のものです。
 
 coverity-warning-triage は、plugin-creator の作り直しの試験で作りました。元のプラグイン coverity-triage（[coverity-triage-agent](https://github.com/xclang-brain/coverity-triage-agent)、MIT License）の部品を流用しています。plugin-creator の問いには、利用者の代わりに AI（Claude）が、元のプラグインの資料をもとに答えました。
+
+ng-repro-pick は、plugin-creator のアイデア創出スキル（make-idea）で作ったアイデアを題材にした、plugin-creator の試験で作りました。AI が演じたユーザー（組み込みファームウェアの担当者）と plugin-creator が会話して作りました。中に出てくる人の名前、試験の項目、数は、架空のものです。
 
 ## プラグインを足すとき
 
