@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "handoff-compare-report",
+  "version": "0.1.0",
+  "description": "病棟の申し送りの3つの形の机上の比較で、正解の一覧・申し送り・判定シート・時間の記録から形ごとに漏れや時間を数え、結論つきの比較報告 compare_report.md を作る"
+}

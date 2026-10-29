@@ -1,0 +1,12 @@
+{
+  "name": "handoff-compare-report",
+  "owner": {
+    "name": "handoff-compare-report"
+  },
+  "plugins": [
+    {
+      "name": "handoff-compare-report",
+      "source": "./"
+    }
+  ]
+}
