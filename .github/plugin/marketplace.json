@@ -30,6 +30,12 @@
       "description": "試験部門から毎週届く試験結果の Excel と試験仕様書の Word から、最初に実機の台で再現させる NG を1つ選び、pick.md のメモにするプラグイン",
       "version": "0.1.0",
       "source": "./plugins/ng-repro-pick"
+    },
+    {
+      "name": "handoff-compare-report",
+      "description": "病棟の申し送りの3つの形（AI なし／AI が全体を下書き／事実の欄だけ AI）の机上の比較で、正解の一覧・申し送り・判定シート・時間の記録から形ごとに漏れや時間を数え、結論つきの比較報告 compare_report.md を作るプラグイン",
+      "version": "0.1.0",
+      "source": "./plugins/handoff-compare-report"
     }
   ]
 }

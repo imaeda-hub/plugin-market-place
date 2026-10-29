@@ -22,12 +22,15 @@ copilot plugin install <プラグインの名前>@plugin-market-place
 | [embedded-debug-loop](plugins/embedded-debug-loop/) | C/C++ の組み込み機器のデバッグを、利用者のルールに従ったビルド・デプロイ・実機ログの分析を PDS のループで繰り返して自律的に進める | 0.1.0 |
 | [coverity-warning-triage](plugins/coverity-warning-triage/) | Coverity Connect の警告をトリアージし、警告ごとに修正案と逸脱コメント案の両方を作る（C / C++、標準・MISRA・CERT）。既存のプラグイン coverity-triage を plugin-creator で作り直したもの | 0.1.0 |
 | [ng-repro-pick](plugins/ng-repro-pick/) | 試験部門から毎週届く試験結果の Excel と試験仕様書の Word から、最初に実機の台で再現させる NG を1つ選び、pick.md のメモにする | 0.1.0 |
+| [handoff-compare-report](plugins/handoff-compare-report/) | 病棟の申し送りの3つの形（AI なし／AI が全体を下書き／事実の欄だけ AI）の机上の比較で、形ごとに漏れや時間を数え、結論つきの比較報告 compare_report.md を作る | 0.1.0 |
 
 weekly-sales-report は、plugin-creator の試験で作った見本です。AI が演じたユーザー（営業チームのリーダー）と plugin-creator が会話して作りました。中に出てくる人の名前や売上の数字は、架空のものです。
 
 coverity-warning-triage は、plugin-creator の作り直しの試験で作りました。元のプラグイン coverity-triage（[coverity-triage-agent](https://github.com/xclang-brain/coverity-triage-agent)、MIT License）の部品を流用しています。plugin-creator の問いには、利用者の代わりに AI（Claude）が、元のプラグインの資料をもとに答えました。
 
 ng-repro-pick は、plugin-creator のアイデア創出スキル（make-idea）で作ったアイデアを題材にした、plugin-creator の試験で作りました。AI が演じたユーザー（組み込みファームウェアの担当者）と plugin-creator が会話して作りました。中に出てくる人の名前、試験の項目、数は、架空のものです。
+
+handoff-compare-report も、make-idea で作ったアイデア（AI の申し送りを入れる前に、AI なしの良い形と並べて3つの形を比べる）を題材にした、plugin-creator の試験で作りました。AI が演じたユーザー（病院の看護の質の担当者）と plugin-creator が会話して作りました。中に出てくる患者、病棟、数は、架空のものです。医療の判断に使うものではありません。
 
 ## プラグインを足すとき
 

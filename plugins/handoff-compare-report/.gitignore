@@ -1,0 +1,5 @@
+tests/.venv/
+tests/node_modules/
+tests/results/
+__pycache__/
+.plugin-creator-work/
